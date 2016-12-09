@@ -1,0 +1,9 @@
+[package]
+name = "day7"
+version = "0.1.0"
+authors = ["ksenhaji"]
+
+[dependencies]
+regex = "0.1"
+lazy_static = "*"
+itertools = "0.5"
