@@ -1,6 +1,7 @@
-use std::ops::IndexMut;
 use std::str::FromStr;
 use std::collections::HashSet;
+
+use std::io::BufRead;
 
 #[derive(Debug, Clone, Copy)]
 enum Axis {
@@ -8,29 +9,32 @@ enum Axis {
     Y
 }
 
+static HEIGHT: u8 = 6;
+static WIDTH: u8 = 50;
+
 #[derive(Debug)]
 enum Instruction {
-    Rectangle(i8, i8),
-    Rotate(Axis, i8, i8)
+    Rectangle(u8, u8),
+    Rotate(Axis, u8, u8)
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-struct Coord(i8, i8);
+struct Coord(u8, u8);
 
 impl Coord {
-    fn get(& self, idx: Axis) -> i8 {
+    fn get(& self, idx: Axis) -> u8 {
         match idx {
             Axis::X => self.0,
             Axis::Y => self.1
         }
     }
 
-    fn rotate(&self, idx: Axis, dist: i8) -> Coord {
+    fn rotate(&self, idx: Axis, dist: u8) -> Coord {
         let mut x = self.0;
         let mut y = self.1;
         match idx {
-            Axis::X => y = (y + dist + 6) % 6,
-            Axis::Y => x = (x + dist + 50) % 50,
+            Axis::X => y = (y + dist + HEIGHT) % HEIGHT,
+            Axis::Y => x = (x + dist + WIDTH) % WIDTH,
         }
         Coord(x,y)
     }
@@ -43,8 +47,8 @@ fn parse(s: &str) -> Instruction {
         let rest = words.next().unwrap();
         let mut splitted = rest.split('x');
         return Instruction::Rectangle(
-            i8::from_str(splitted.next().unwrap()).unwrap(),
-            i8::from_str(splitted.next().unwrap()).unwrap());
+            u8::from_str(splitted.next().unwrap()).unwrap(),
+            u8::from_str(splitted.next().unwrap()).unwrap());
     }
     else {
         let axis = if words.next() == Some("row") {Axis::Y} else {Axis::X};
@@ -54,8 +58,8 @@ fn parse(s: &str) -> Instruction {
         let dist = words.next().unwrap();
         return Instruction::Rotate(
             axis,
-            i8::from_str(c).unwrap(),
-            i8::from_str(dist).unwrap()
+            u8::from_str(c).unwrap(),
+            u8::from_str(dist).unwrap()
         );
     }
 }
@@ -75,11 +79,9 @@ fn process(inst: &Instruction, lights: &mut HashSet<Coord>) {
                 .filter(|c| c.get(axis) == coord)
                 .map(|c| c.clone())
                 .collect();
-            println!("To be removed {:?}", to_be_removed);
             let to_be_added : Vec<Coord> = to_be_removed.iter()
                 .map(|c| c.rotate(axis, distance))
                 .collect();
-            println!("To be added   {:?}", to_be_added);
             for r in to_be_removed {
                 lights.remove(&r);
             }
@@ -91,17 +93,20 @@ fn process(inst: &Instruction, lights: &mut HashSet<Coord>) {
 }
 
 fn main() {
-    let rect = parse("rect 3x2");
-    println!("{:?}", rect);
+    let f = std::fs::File::open("input").expect("Unable to open input file");
     let mut lights = HashSet::new();
-    process(&rect,  &mut lights);
-    println!("{:?}", lights);
-    let rot =  parse("rotate column x=1 by 1");
-    println!("{:?}", rot);
-    process(&rot,  &mut lights);
-    println!("{:?}", lights);
-    let rot =  parse("rotate row y=0 by 4");
-    println!("{:?}", rot);
-    process(&rot,  &mut lights);
-    println!("{:?}", lights);
+    let mut lines = std::io::BufReader::new(f).lines();
+    while let Some(Ok(l)) = lines.next() {
+        let inst = parse(&l);
+        process(&inst, &mut lights);
+    }
+    println!("Number of lights on: {:?}", lights.len());
+
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            print!("{}", if lights.contains(&Coord(x, y)) { '*' } else { ' ' } );
+        }
+        println!("");
+    }
+
 }
