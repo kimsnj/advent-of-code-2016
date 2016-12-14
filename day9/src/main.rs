@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
@@ -17,12 +15,18 @@ enum IngestionState {
     }
 }
 
+fn parse_marker(s: &str) -> (usize, usize) {
+    let (occ, rep) = s.split_at(s.find('x').unwrap());
+    (usize::from_str(&occ[1..]).unwrap(),
+    usize::from_str(&rep[1..(rep.len()-1)]).unwrap())
+}
+
 impl IngestionState {
     fn from_marker(s: &str) -> IngestionState {
-        let (occ, rep) = s.split_at(s.find('x').unwrap());
+        let (len, rep) = parse_marker(s);
         Duplicate {
-            rem: usize::from_str(&occ[1..]).unwrap(),
-            occ: usize::from_str(&rep[1..(rep.len()-1)]).unwrap(),
+            rem: len,
+            occ: rep,
             buf: String::new()
         }
     }
@@ -54,7 +58,6 @@ fn split(compressed: &str) -> Vec<(BlockType, &str)> {
     }
     blocks
 }
-
 
 use IngestionState::*;
 use BlockType::*;
@@ -96,10 +99,24 @@ fn decompress(s: &str) -> String {
     decompressor.decompressed
 }
 
+
+fn decompressed_size(s: &str) -> usize {
+    match s.find('(') {
+        None => s.len(),
+        Some(0) => {
+            let (marker, rest) = s.split_at(s.find(')').unwrap() + 1);
+            let (len, rep) = parse_marker(marker);
+            rep * decompressed_size(&rest[..len]) + decompressed_size(&rest[len..])
+        },
+        Some(i) => i + decompressed_size(&s[i..]),
+    }
+}
+
 fn main() {
     let mut f = std::fs::File::open("input").expect("Unable to open input file");
     let mut input = String::new();
     f.read_to_string(&mut input).expect("Unable to read file");
 
-    println!("{:?}", decompress(&input).len());
+    println!("v1 decoding: {:?}", decompress(&input).len());
+    println!("v2 decoding: {:?}", decompressed_size(input.trim()));
 }
